@@ -1,0 +1,60 @@
+无意义可以删除（备份文件）
+<template>
+
+  <div class="common-layout">
+    <el-container>
+      <el-header>
+        <h1>基于yolo与clip的图像关键识别演示</h1>
+      </el-header>
+      <el-main>
+        <div class="button-container">
+          <div class="button-wrapper">
+            <router-link to="/" class="button-full">
+              <el-button type="primary" icon="ArrowLeft">关键字识别</el-button>
+            </router-link>
+          </div>
+          <div class="button-wrapper">
+            <router-link to="/Img" class="button-full">
+              <el-button type="success">图像识别<el-icon class="el-icon--right"><ArrowRight /></el-icon></el-button>
+            </router-link>
+          </div>
+        </div>
+      </el-main>
+      <el-footer>
+        <router-view />
+      </el-footer>
+    </el-container>
+  </div>
+</template>
+
+<style>
+.button-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.button-wrapper {
+  margin-bottom: 1px; /* 间距可根据需要进行调整 */
+}
+.button-full {
+  width: 100%;
+}
+.common-layout {
+  height: 100vh; /* 设置整个布局的高度为浏览器窗口的100% */
+}
+
+.el-container {
+  height: 80%; /* 设置el-container的高度为其父元素（common-layout）的100% */
+}
+
+.el-header {
+  height: 20%; 
+}
+
+.el-footer
+ {
+  height: auto; /* 设置主内容区域的高度为自适应 */
+  margin-top: 5px; /* 与按钮之间的间距 */
+  margin-bottom: 5px; /* 与按钮之间的间距 */
+}
+</style>
