@@ -4,20 +4,21 @@ import clip
 import torch
 from PIL import Image
 import os
+import numpy as np
 
 # Replace with your actual database configuration
 DATABASE_CONFIG = {
     'host': 'localhost',
-    'port': 3306,
-    'user': 'your_username',
-    'password': 'your_password',
-    'db': 'your_database',
+    'port': 3307,
+    'user': 'root',
+    'password': '96196',
+    'db': 'Test',
     'charset': 'utf8mb4',
     'autocommit': True
 }
 
 # Replace with your actual table name and column names
-TABLE_NAME = 'image_features'
+TABLE_NAME = 'image'
 URL_COLUMN_NAME = 'image_url'
 FEATURES_COLUMN_NAME = 'features'
 
@@ -43,18 +44,28 @@ async def save_features_to_db(directory):
         async with conn.cursor() as cursor:
             with torch.no_grad():
                 for path in image_paths:
+                    # Use the local file path instead of a URL
+                    local_image_path = path
+
+                    # Check if the image path already exists in the database
+                    await cursor.execute(f"SELECT COUNT(*) FROM {TABLE_NAME} WHERE {URL_COLUMN_NAME} = %s", (local_image_path,))
+                    (count,) = await cursor.fetchone()
+                    if count > 0:
+                        # Skip this image because its path already exists in the database
+                        continue
+
                     image = preprocess(Image.open(path)).unsqueeze(0).to(device)
                     image_features = model.encode_image(image)
                     image_features /= image_features.norm(dim=-1, keepdim=True)
                     features = image_features.cpu().numpy().flatten()
 
-                    # Construct the image URL (modify this according to your actual URL structure)
-                    image_url = f'http://yourserver.com/images/{os.path.basename(path)}'
+                    # Convert numpy array to bytes for storage
+                    features_bytes = features.tobytes()
 
-                    # Insert URL and features into the database (modify this according to your actual schema)
+                    # Insert local image path and features into the database
                     await cursor.execute(
                         f"INSERT INTO {TABLE_NAME} ({URL_COLUMN_NAME}, {FEATURES_COLUMN_NAME}) VALUES (%s, %s)",
-                        (image_url, features.tobytes())
+                        (local_image_path, features_bytes)
                     )
             await conn.commit()
     pool.close()
@@ -62,5 +73,5 @@ async def save_features_to_db(directory):
 
 
 if __name__ == "__main__":
-    directory = 'path_to_your_image_directory'
+    directory = './imgs/'
     asyncio.get_event_loop().run_until_complete(save_features_to_db(directory))

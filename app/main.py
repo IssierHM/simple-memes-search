@@ -10,8 +10,18 @@ from model.clip import load, tokenize
 import numpy as np
 from typing import Optional
 import torch
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+origins = ["http://localhost:8082"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # 允许访问的源列表
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许的HTTP方法
+    allow_headers=["*"],  # 允许的HTTP头
+)
 
 # 加载CLIP模型
 model, preprocess = load("ViT-B/32", device="cpu")
@@ -21,9 +31,9 @@ async def create_db_pool():
     # 创建数据库连接池
     return await aiomysql.create_pool(
         host=os.getenv('DB_HOST', '127.0.0.1'),
-        port=int(os.getenv('DB_PORT', 114514)),
+        port=int(os.getenv('DB_PORT', 3307)),
         user=os.getenv('DB_USER', 'root'),
-        password=os.getenv('DB_PASSWORD', '1919810'),
+        password=os.getenv('DB_PASSWORD', '96196'),
         db=os.getenv('DB_NAME', 'Test'),
         charset='utf8mb4',
         autocommit=True,
@@ -44,14 +54,22 @@ async def shutdown_event():
 async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
     async with pool.acquire() as conn:
         async with conn.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute("SELECT image_url, features FROM image_features")
+            await cursor.execute("SELECT image_url, features FROM image")
             results = await cursor.fetchall()
 
             # 计算每个图片特征与输入特征的相似度
             similarities = []
             for row in results:
                 db_feature = torch.from_numpy(np.frombuffer(row['features'], dtype=np.float32))
-                similarity = torch.dot(db_feature, input_feature) / (torch.norm(db_feature) * torch.norm(input_feature))
+                # Ensure input_feature is also a torch.Tensor
+                input_feature_tensor = torch.from_numpy(input_feature) if isinstance(input_feature,
+                                                                                     np.ndarray) else input_feature
+                # Ensure both tensors are 2D before calculating similarity
+                db_feature = db_feature.unsqueeze(0)  # Convert to 2D tensor if it's 1D
+                input_feature_tensor = input_feature_tensor.unsqueeze(
+                    0) if input_feature_tensor.ndim == 1 else input_feature_tensor
+                # Calculate cosine similarity
+                similarity = torch.nn.functional.cosine_similarity(db_feature, input_feature_tensor)
                 similarities.append((row['image_url'], similarity.item()))
 
             similarities.sort(key=lambda x: x[1], reverse=True)
@@ -61,17 +79,17 @@ async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
     return [url for url, _ in top_10_similar]
 
 
-async def base64_to_image(base64_str):
-    image_data = base64.b64decode(base64_str)
+def base64_to_image(base64_str):
+    image_data = base64.urlsafe_b64decode(base64_str)
     image = Image.open(BytesIO(image_data)).convert("RGB")
     return image
 
 
-async def image_to_base64(image_path):
+def image_to_base64(image_path):
     with Image.open(image_path) as image:
         buffered = BytesIO()
         image.save(buffered, format="JPEG")
-        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+        return base64.urlsafe_b64encode(buffered.getvalue()).decode('utf-8')
 
 
 def get_image_features(image):
@@ -90,7 +108,7 @@ def get_text_features(text):
     return text_features.cpu().numpy()
 
 
-@app.post("/search/")
+@app.post("/search")
 async def search(image_base64: Optional[str] = Form(None), text: Optional[str] = Form(None)):
     img_results = []
 
@@ -101,7 +119,6 @@ async def search(image_base64: Optional[str] = Form(None), text: Optional[str] =
         input_feature = (text_feature + input_img_feature) / 2
         urls = await get_similar_images(app.state.db_pool, input_feature)
         img_results = [image_to_base64(url) for url in urls]
-
     elif image_base64:
         img = base64_to_image(image_base64)
         input_img_feature = get_image_features(img)
@@ -115,8 +132,7 @@ async def search(image_base64: Optional[str] = Form(None), text: Optional[str] =
         raise HTTPException(status_code=400, detail="No search input provided")
 
     return {
-        "message": "Search completed successfully",
-        "results": img_results
+        "images": img_results
     }
 
 
