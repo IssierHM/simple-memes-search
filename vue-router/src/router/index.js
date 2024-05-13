@@ -9,8 +9,8 @@ const routes = [
     component: Key,
   },
   {
-    path: "/Img",
-    name: "Img",
+    path: "/search",
+    name: "Search",
     component: Img,
   },
 ];

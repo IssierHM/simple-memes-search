@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Form, HTTPException
+import uvicorn
 import aiomysql
 import base64
 from typing import List, Tuple
@@ -120,5 +121,4 @@ async def search(image_base64: Optional[str] = Form(None), text: Optional[str] =
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host='127.0.0.1', port=11451)

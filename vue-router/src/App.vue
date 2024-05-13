@@ -1,7 +1,7 @@
 <template>
   <el-container class="common-layout">
     <el-header>
-      <h1>基于yolo与clip的meme检索演示</h1>
+      <h1>meme检索演示</h1>
     </el-header>
     <el-container>
       <el-main>
@@ -18,7 +18,7 @@
               项目简介
             <!-- </router-link> -->
           </el-menu-item>
-          <el-menu-item index="/Img">
+          <el-menu-item index="/search">
             <!-- <router-link to="/Img" class="button-full"> -->
               图像识别
             <!-- </router-link> -->
