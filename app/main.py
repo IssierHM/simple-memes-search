@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Form, HTTPException
 import uvicorn
 import aiomysql
+import re
 import base64
 from typing import List, Tuple
 from io import BytesIO
@@ -54,21 +55,18 @@ async def shutdown_event():
 async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
     async with pool.acquire() as conn:
         async with conn.cursor(aiomysql.DictCursor) as cursor:
-            await cursor.execute("SELECT image_url, features FROM image")
+            await cursor.execute("SELECT image_url, features, shape FROM image")
             results = await cursor.fetchall()
 
             # 计算每个图片特征与输入特征的相似度
             similarities = []
             for row in results:
-                db_feature = torch.from_numpy(np.frombuffer(row['features'], dtype=np.float32))
-                # Ensure input_feature is also a torch.Tensor
-                input_feature_tensor = torch.from_numpy(input_feature) if isinstance(input_feature,
-                                                                                     np.ndarray) else input_feature
-                # Ensure both tensors are 2D before calculating similarity
-                db_feature = db_feature.unsqueeze(0)  # Convert to 2D tensor if it's 1D
-                input_feature_tensor = input_feature_tensor.unsqueeze(
-                    0) if input_feature_tensor.ndim == 1 else input_feature_tensor
-                # Calculate cosine similarity
+                shape = np.frombuffer(row['shape'], dtype= int)
+                shape_tuple = tuple(shape)
+                # 直接将二进制数据转换为张量，并使用reshape恢复原始形状
+                db_feature = torch.tensor(np.frombuffer(row['features'], dtype=np.float32)).reshape(shape_tuple)
+                input_feature_tensor = input_feature if input_feature.ndim == 2 else input_feature.unsqueeze(0)
+
                 similarity = torch.nn.functional.cosine_similarity(db_feature, input_feature_tensor)
                 similarities.append((row['image_url'], similarity.item()))
 
@@ -80,6 +78,13 @@ async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
 
 
 def base64_to_image(base64_str):
+    padding_needed = len(base64_str) % 4
+    if padding_needed:  # 如果不是4的倍数
+        missing_padding = 4 - padding_needed
+        base64_str += '=' * missing_padding  # 添加缺失的填充字符
+
+    base64_str = re.sub('^data:image/.+;base64,', '', base64_str)
+
     image_data = base64.urlsafe_b64decode(base64_str)
     image = Image.open(BytesIO(image_data)).convert("RGB")
     return image
@@ -88,7 +93,7 @@ def base64_to_image(base64_str):
 def image_to_base64(image_path):
     with Image.open(image_path) as image:
         buffered = BytesIO()
-        image.save(buffered, format="JPEG")
+        image.save(buffered, format="PNG")
         return base64.urlsafe_b64encode(buffered.getvalue()).decode('utf-8')
 
 
@@ -97,7 +102,7 @@ def get_image_features(image):
     with torch.no_grad():
         image_features = model.encode_image(image_preprocessed)
         image_features /= image_features.norm(dim=-1, keepdim=True)
-    return image_features.cpu().numpy()
+    return image_features
 
 
 def get_text_features(text):
@@ -105,7 +110,7 @@ def get_text_features(text):
     with torch.no_grad():
         text_features = model.encode_text(text_tokens)
         text_features /= text_features.norm(dim=-1, keepdim=True)
-    return text_features.cpu().numpy()
+    return text_features
 
 
 @app.post("/search")

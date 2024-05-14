@@ -57,15 +57,17 @@ async def save_features_to_db(directory):
                     image = preprocess(Image.open(path)).unsqueeze(0).to(device)
                     image_features = model.encode_image(image)
                     image_features /= image_features.norm(dim=-1, keepdim=True)
-                    features = image_features.cpu().numpy().flatten()
-
-                    # Convert numpy array to bytes for storage
+                    features = image_features.cpu().numpy()
+                    features = features.astype(np.float32)
                     features_bytes = features.tobytes()
 
-                    # Insert local image path and features into the database
+                    # 存储特征时，还需要存储形状信息
+                    shape_bytes = np.array(features.shape).tobytes()
+
+                    # 将路径、特征和形状插入数据库
                     await cursor.execute(
-                        f"INSERT INTO {TABLE_NAME} ({URL_COLUMN_NAME}, {FEATURES_COLUMN_NAME}) VALUES (%s, %s)",
-                        (local_image_path, features_bytes)
+                        f"INSERT INTO {TABLE_NAME} ({URL_COLUMN_NAME}, {FEATURES_COLUMN_NAME}, shape) VALUES (%s, %s, %s)",
+                        (local_image_path, features_bytes, shape_bytes)
                     )
             await conn.commit()
     pool.close()
@@ -73,5 +75,5 @@ async def save_features_to_db(directory):
 
 
 if __name__ == "__main__":
-    directory = './imgs/'
+    directory = '../imgs/'
     asyncio.get_event_loop().run_until_complete(save_features_to_db(directory))
