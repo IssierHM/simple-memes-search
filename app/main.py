@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-origins = ["http://localhost:8082"]
+origins = ["http://localhost:8080"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # 允许访问的源列表
@@ -61,7 +61,7 @@ async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
             # 计算每个图片特征与输入特征的相似度
             similarities = []
             for row in results:
-                shape = np.frombuffer(row['shape'], dtype= int)
+                shape = np.frombuffer(row['shape'], dtype=int)
                 shape_tuple = tuple(shape)
                 # 直接将二进制数据转换为张量，并使用reshape恢复原始形状
                 db_feature = torch.tensor(np.frombuffer(row['features'], dtype=np.float32)).reshape(shape_tuple)
@@ -71,10 +71,10 @@ async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
                 similarities.append((row['image_url'], similarity.item()))
 
             similarities.sort(key=lambda x: x[1], reverse=True)
-            top_10_similar = similarities[:10]
+            top_5_similar = similarities[:5]
 
     # 返回相似度最高的10个图片URL
-    return [url for url, _ in top_10_similar]
+    return [url for url, _ in top_5_similar]
 
 
 def base64_to_image(base64_str):
@@ -85,8 +85,8 @@ def base64_to_image(base64_str):
 
     base64_str = re.sub('^data:image/.+;base64,', '', base64_str)
 
-    image_data = base64.urlsafe_b64decode(base64_str)
-    image = Image.open(BytesIO(image_data)).convert("RGB")
+    image_data = base64.b64decode(base64_str)
+    image = Image.open(BytesIO(image_data))
     return image
 
 
@@ -94,7 +94,7 @@ def image_to_base64(image_path):
     with Image.open(image_path) as image:
         buffered = BytesIO()
         image.save(buffered, format="PNG")
-        return base64.urlsafe_b64encode(buffered.getvalue()).decode('utf-8')
+        return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 
 def get_image_features(image):

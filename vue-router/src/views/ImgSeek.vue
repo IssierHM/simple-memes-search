@@ -26,12 +26,12 @@
                   请上传JPG/PNG格式
                 </div>
               </template>
+              <img v-if="formInline.image_base64" :src="formInline.image_base64" alt="Uploaded Image" />
             </el-upload>
           </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="uploadImages">请求数据</el-button>
           </el-form-item>
-          <img v-if="formInline.image_base64" :src="formInline.image_base64" alt="Uploaded Image" />
         </el-form>
       </el-main>
       <el-main>
@@ -100,7 +100,8 @@ const uploadImages = () => {
   })
   .then((response) => {
     console.log('Upload successful:', response.data);
-    backInline.value.image_base64 = response.data.images;
+    // 假设后端返回的图片是 PNG 格式
+    backInline.value.image_base64 = response.data.images.map(img => `data:image/png;base64,${img}`);
   })
   .catch((error) => {
     console.error('Error during upload:', error);
@@ -142,4 +143,5 @@ const uploadImages = () => {
 .input {
   height: 40px;
 }
+
 </style>
