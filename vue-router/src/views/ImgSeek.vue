@@ -1,9 +1,10 @@
 <template>
   <div class="common-layout">
-    <el-container>
-      <el-header>###################################################################</el-header>
-      <el-main class="input">
-        <h3>请输入关键词并将需要识别的图片放入框中</h3>
+      <el-container class="input">
+        <div class="header-container">
+          <h2>meme图像检索</h2>
+          <h3 class="header">请输入关键词并将目标图片上传</h3>
+        </div>
         <el-form :model="formInline" class="demo-form-inline">
           <el-form-item label="关键词">
             <el-input v-model="formInline.text" placeholder="关键词" clearable />
@@ -27,21 +28,21 @@
                 </div>
               </template>
               <img v-if="formInline.image_base64" :src="formInline.image_base64" alt="Uploaded Image" />
+              <img v-else src="../assets/image/show.jpg" alt="Default Image" />
             </el-upload>
           </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="uploadImages">请求数据</el-button>
-          </el-form-item>
+          <el-button type="primary" @click="uploadImages">请求数据</el-button>
         </el-form>
-      </el-main>
-      <el-main>
+      <el-footer>
         <h3>结果展示</h3>
-        <ul class="infinite-list" style="overflow: auto">
-          <li v-for="(image, index) in backInline.image_base64" :key="index" class="infinite-list-item">
-            <img :src="image" alt="Image">
-          </li>
-        </ul>
-      </el-main>
+        <div class="demo-image__lazy">
+          <el-image v-for="(url, index) in backInline" :key="index" :src="url" lazy />
+          <!-- <img  src="../assets/image/show.jpg" alt="Default Image" />
+          <img  src="../assets/image/2.jpg" alt="Default Image" />
+          <img  src="../assets/image/2.jpg" alt="Default Image" />
+          <img  src="../assets/image/2.jpg" alt="Default Image" /> -->
+        </div>
+      </el-footer>
     </el-container>
   </div>
 </template>
@@ -54,9 +55,7 @@ const formInline = ref({
   text: '',
   image_base64: '' // 将image_base64定义为一个空字符串
 })
-const backInline = ref({
-  image_base64: []
-})
+const backInline = ref([]) 
 const fileList = ref([]) // 用于管理上传文件列表
 
 function handleBeforeUpload(file) {
@@ -101,7 +100,7 @@ const uploadImages = () => {
   .then((response) => {
     console.log('Upload successful:', response.data);
     // 假设后端返回的图片是 PNG 格式
-    backInline.value.image_base64 = response.data.images.map(img => `data:image/png;base64,${img}`);
+    backInline.value = response.data.images.map(img => `data:image/png;base64,${img}`);
   })
   .catch((error) => {
     console.error('Error during upload:', error);
@@ -109,39 +108,47 @@ const uploadImages = () => {
 }
 </script>
 
-
 <style scoped>
 .demo-form-inline .el-input {
-  width: 220px;
+  width: 200px;
+}
+.demo-image__lazy {
+  max-height: 400px; 
+  display: fixed;
+  flex: 1;
 }
 
-.demo-form-inline .el-select {
-  width: 220px;
+
+.demo-image__lazy img:last-child {
+  margin-bottom: 0;
 }
 
-.infinite-list {
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  list-style: none;
+.demo-image__lazy  img {
+  /* max-width: 50%;
+  max-height: 50%;
+  margin-bottom: 10px; */
+  clip:rect(100%,100%);
+   
 }
-
-.infinite-list .infinite-list-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 50px;
-  background: var(--el-color-primary-light-9);
-  margin: 10px;
-  color: var(--el-color-primary);
-}
-
-.infinite-list .infinite-list-item + .list-item {
-  margin-top: 10px;
-}
-
 .input {
-  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative; /* 添加定位属性 */
 }
 
+.header-container .header {
+  margin: 0;
+  text-align: center;
+  position: absolute; /* 使用绝对定位 */
+  left: 50%; /* 将左侧位置设为父容器宽度的一半 */
+  transform: translateX(-50%); /* 通过偏移来实现居中 */
+}
 </style>

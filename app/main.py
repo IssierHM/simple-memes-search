@@ -71,10 +71,10 @@ async def get_similar_images(pool, input_feature: torch.Tensor) -> List[str]:
                 similarities.append((row['image_url'], similarity.item()))
 
             similarities.sort(key=lambda x: x[1], reverse=True)
-            top_5_similar = similarities[:5]
+            top_4_similar = similarities[:4]
 
     # 返回相似度最高的10个图片URL
-    return [url for url, _ in top_5_similar]
+    return [url for url, _ in top_4_similar]
 
 
 def base64_to_image(base64_str):

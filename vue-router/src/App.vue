@@ -43,7 +43,7 @@ const scrollToTop = () => {
 
 <style>
 .common-layout {
-  height: 100vh;
+  height: 200vh;
 }
 .el-container {
   height: 80%;
