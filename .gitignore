@@ -164,3 +164,4 @@ Pipfile
 Pipfile.lock
 .idea
 imgs/
+cn_clip/clip/pt/

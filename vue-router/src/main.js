@@ -5,6 +5,8 @@ import axios from 'axios';
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as Icons from '@element-plus/icons-vue'
+import './style/custom-style.scss';
+
 
 // 创建Vue应用实例
 const app = createApp(App);

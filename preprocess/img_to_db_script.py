@@ -1,12 +1,12 @@
 import aiomysql
 import asyncio
-import clip
+import cn_clip.clip as clip
+from cn_clip.clip import load_from_name
 import torch
 from PIL import Image
 import os
 import numpy as np
 
-# Replace with your actual database configuration
 DATABASE_CONFIG = {
     'host': 'localhost',
     'port': 3307,
@@ -17,7 +17,6 @@ DATABASE_CONFIG = {
     'autocommit': True
 }
 
-# Replace with your actual table name and column names
 TABLE_NAME = 'image'
 URL_COLUMN_NAME = 'image_url'
 FEATURES_COLUMN_NAME = 'features'
@@ -35,7 +34,13 @@ async def get_image_paths(directory):
 
 async def save_features_to_db(directory):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, preprocess = clip.load("ViT-B/32", device=device)
+    # model, preprocess = load_from_name("ViT-L-14", device=device, download_root='../cn_clip/clip/')
+    model, preprocess = load_from_name(
+        "D:/project/memes-search/cn_clip/clip/pt/epoch_latest.pt",
+        device=device,
+        vision_model_name="ViT-L-14-336",
+        text_model_name="RoBERTa-wwm-ext-base-chinese",
+        input_resolution=336)
 
     image_paths = await get_image_paths(directory)
 
@@ -44,14 +49,10 @@ async def save_features_to_db(directory):
         async with conn.cursor() as cursor:
             with torch.no_grad():
                 for path in image_paths:
-                    # Use the local file path instead of a URL
                     local_image_path = path
-
-                    # Check if the image path already exists in the database
                     await cursor.execute(f"SELECT COUNT(*) FROM {TABLE_NAME} WHERE {URL_COLUMN_NAME} = %s", (local_image_path,))
                     (count,) = await cursor.fetchone()
                     if count > 0:
-                        # Skip this image because its path already exists in the database
                         continue
 
                     image = preprocess(Image.open(path)).unsqueeze(0).to(device)
@@ -59,12 +60,13 @@ async def save_features_to_db(directory):
                     image_features /= image_features.norm(dim=-1, keepdim=True)
                     features = image_features.cpu().numpy()
                     features = features.astype(np.float32)
+
+                    print(features.size)
+
                     features_bytes = features.tobytes()
 
-                    # 存储特征时，还需要存储形状信息
                     shape_bytes = np.array(features.shape).tobytes()
 
-                    # 将路径、特征和形状插入数据库
                     await cursor.execute(
                         f"INSERT INTO {TABLE_NAME} ({URL_COLUMN_NAME}, {FEATURES_COLUMN_NAME}, shape) VALUES (%s, %s, %s)",
                         (local_image_path, features_bytes, shape_bytes)

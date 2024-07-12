@@ -1,48 +1,87 @@
 <template>
   <div class="common-layout">
-      <el-container class="input">
-        <div class="header-container">
-          <h2>meme图像检索</h2>
-          <h3 class="header">请输入关键词并将目标图片上传</h3>
+    <el-container class="main">
+      <el-header>
+        <div class="left-content">
+          <a href="/" target="_self">
+            <img src="../assets/logo.png" alt="Logo" style="height: 60px;"> <!-- 替换为您的 logo 路径 -->
+          </a>
         </div>
-        <el-form :model="formInline" class="demo-form-inline">
-          <el-form-item label="关键词">
-            <el-input v-model="formInline.text" placeholder="关键词" clearable />
-          </el-form-item>
-          <el-form-item>
-            <el-upload
-              class="upload-demo"
-              ref="uploadRef"
-              drag
-              action="#"
-              :before-upload="handleBeforeUpload"
-              :on-change="handleChange"
-              :file-list="fileList"
-            >
-              <div class="el-upload__text">
-                请将文件拖入或 <em>点击以上传</em>
-              </div>
-              <template #tip>
-                <div class="el-upload__tip">
-                  请上传JPG/PNG格式
+        <div class="right-content">
+          <a href="https://github.com/IssierHM/simple-memes-search" target="_blank">
+            <img src="../assets/image/github-mark.png" alt="GitHub" style="height: 40px;"> 
+          </a>
+        </div>
+      </el-header>
+      <el-main>
+        <div class="search">
+          <el-container class="input">
+            <el-form :model="formInline" class="demo-form-inline">
+              <el-form-item label="输入文本">
+                <el-input v-model="formInline.text" placeholder="请输入文本" clearable />
+              </el-form-item>
+              <el-form-item>
+                <el-upload
+                  v-model:file-list="fileList"
+                  class="upload-demo"
+                  ref="uploadRef"
+                  drag
+                  action="#"
+                  :before-upload="handleBeforeUpload"
+                  :on-change="handleChange"
+                  list-type="picture"
+                >
+                  <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                  <div class="el-upload__text">
+                    请将文件拖入或 <em>点击以上传</em>
+                  </div>
+                  <template #tip>
+                    <div class="el-upload__tip">
+                      请上传JPG/PNG格式
+                    </div>
+                  </template>
+                  <div class="preview-image">
+                    <!-- <span class="demonstration">{{ fit }}</span> -->
+                    <el-image v-if="formInline.image_base64" style="width: 300px; height: 300px" :src="formInline.image_base64" :fit="fit" />
+                    <el-image v-else style="width: 250px; height: 250px" :src="slotImage" :fit="fit_contain"/>
+    
+                  </div>
+                  <!-- <img v-if="formInline.image_base64" :src="formInline.image_base64" alt="Uploaded Image" /> -->
+                  <!-- <img v-else src="../assets/image/show.jpg" alt="Default Image" /> -->
+                </el-upload>
+              </el-form-item>
+              <el-form-item label="返回数量">
+                <el-slider v-model="sliderValue" :min="1" :max="20" :step="1" />
+              </el-form-item>
+              <el-button type="primary" @click="uploadImages">检索</el-button>
+            </el-form>
+          </el-container>
+          <el-container class="result-output">
+            <!-- <div class="demo-image__lazy"> -->
+            <!-- <el-space warp> -->
+            <div v-for="(item, index) in backInline" :key="index" class="demo-image__preview">
+              <el-image  
+              style="width: 300px; height: 300px"
+              :src="item" :fit="fit" lazy />
+              <div class="mask">
+                <div class="zoomInImg svgBox" @click="showImgView(item, index)">
+                  <el-icon size="30">
+                    <ZoomIn />
+                  </el-icon>
                 </div>
-              </template>
-              <img v-if="formInline.image_base64" :src="formInline.image_base64" alt="Uploaded Image" />
-              <img v-else src="../assets/image/show.jpg" alt="Default Image" />
-            </el-upload>
-          </el-form-item>
-          <el-button type="primary" @click="uploadImages">请求数据</el-button>
-        </el-form>
-      <el-footer>
-        <h3>结果展示</h3>
-        <div class="demo-image__lazy">
-          <el-image v-for="(url, index) in backInline" :key="index" :src="url" lazy />
-          <!-- <img  src="../assets/image/show.jpg" alt="Default Image" />
-          <img  src="../assets/image/2.jpg" alt="Default Image" />
-          <img  src="../assets/image/2.jpg" alt="Default Image" />
-          <img  src="../assets/image/2.jpg" alt="Default Image" /> -->
+              </div>
+              <el-image-viewer @close="() => { showViewer = false }" v-if="showViewer" :url-list="urlList" />
+            </div>
+            
+            <!-- </el-space> -->
+                <!-- <img  src="../assets/image/show.jpg" alt="Default Image" />
+                <img  src="../assets/image/2.jpg" alt="Default Image" />
+                <img  src="../assets/image/2.jpg" alt="Default Image" />
+                <img  src="../assets/image/2.jpg" alt="Default Image" /> -->
+            <!-- </div> -->
+          </el-container>
         </div>
-      </el-footer>
+      </el-main>
     </el-container>
   </div>
 </template>
@@ -50,13 +89,27 @@
 <script setup>
 import { ref } from 'vue'
 import axios from 'axios'
+import { UploadFilled } from '@element-plus/icons-vue'
 
+const fit = 'cover'
+const fit_contain = 'contain'
+const slotImage = require("../assets/image/show.gif")
 const formInline = ref({
   text: '',
   image_base64: '' // 将image_base64定义为一个空字符串
 })
 const backInline = ref([]) 
 const fileList = ref([]) // 用于管理上传文件列表
+const sliderValue = ref(4)
+
+const showViewer = ref(false)
+const urlList = ref([])
+
+const showImgView = (item, index) => {
+  console.log(index)
+  showViewer.value = true
+  urlList.value = [item]
+}
 
 function handleBeforeUpload(file) {
   // 创建一个 FileReader 对象
@@ -90,6 +143,7 @@ const uploadImages = () => {
   // Append 'text' and 'image_base64' to the FormData object
   formData.append('text', text);
   formData.append('image_base64', formInline.value.image_base64);
+  formData.append('image_count', sliderValue.value);
 
   // Send the FormData to the server using a POST request
   axios.post('http://localhost:11451/search', formData, {
@@ -109,33 +163,95 @@ const uploadImages = () => {
 </script>
 
 <style scoped>
+.left-content {
+  display: flex;
+  align-items: center;
+}
+.right-content {
+  display: flex;
+  align-items: center;
+}
 .demo-form-inline .el-input {
-  width: 200px;
+  width: 300px;
 }
 .demo-image__lazy {
-  max-height: 400px; 
-  display: fixed;
-  flex: 1;
+  display: flex;
 }
-
 
 .demo-image__lazy img:last-child {
   margin-bottom: 0;
 }
-
-.demo-image__lazy  img {
-  /* max-width: 50%;
-  max-height: 50%;
-  margin-bottom: 10px; */
-  clip:rect(100%,100%);
-   
+.search {
+  display: flex;
+  justify-content: space-between; 
+  align-items: start;
+  flex-direction: row;
 }
 .input {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
+  max-width:40%;
 }
+.result-output{
+  display: flex;
+  border-radius: 15px;
+  background-color: rgba(231, 231, 231, 0.973);
+  height: 80vh;
+  width: 60%;
+  display: flex;
+  flex-wrap: wrap; /* 子元素在必要时换行 */
+  justify-content: space-between; /* 控制行内项目的对齐方式 */
+  align-items: flex-start; /* 控制交叉轴上的对齐方式 */
+  overflow-y: auto;
+}
+.result-output >div {
+  width: 300px;
+  height:300px;
+  margin: 10px;
+  border: 2px solid;
+  position: relative;
+  border-image: linear-gradient(#67518b, #397f88) 30;
+  &:hover {
+    .mask {
+      opacity: 1;
+    }
+    img {
+      transform: scale(1.1);
+    }
+  }
+  .mask {
+    transition: all 0.5s;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+ 
+    .svgBox {
+      height: 50px;
+      width: 50px;
+      background: rgb(0, 0, 0, 0.3);
+      border-radius: 50%;
+      margin: 10px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center; 
+      justify-content: center;
+    }
+ 
+    .zoomInImg {
+      color: #fff;
+    }
+  }
+}
+
 .header-container {
   display: flex;
   justify-content: space-between;
@@ -150,5 +266,10 @@ const uploadImages = () => {
   position: absolute; /* 使用绝对定位 */
   left: 50%; /* 将左侧位置设为父容器宽度的一半 */
   transform: translateX(-50%); /* 通过偏移来实现居中 */
+}
+
+.upload-demo {
+  width: 400px; /* 设置宽度 */
+
 }
 </style>

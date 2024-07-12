@@ -1,12 +1,16 @@
 import { createWebHistory, createRouter } from "vue-router";
-import Key from "@/views/KeyWordSeek.vue";
+// import Key from "@/views/KeyWordSeek.vue";
 import Img from "@/views/ImgSeek.vue";
 
 const routes = [
+  // {
+  //   path: "/",
+  //   name: "Home",
+  //   component: Key,
+  // },
   {
     path: "/",
-    name: "Home",
-    component: Key,
+    redirect: "/search"
   },
   {
     path: "/search",
